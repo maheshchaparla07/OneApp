@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">multiScreenApp</string>
+    <string name="main_activity">Main Activity</string>
+</resources>
