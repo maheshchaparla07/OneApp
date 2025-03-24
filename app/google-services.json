@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "16689097897",
+    "project_id": "multiscreenapp-1c15e",
+    "storage_bucket": "multiscreenapp-1c15e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:16689097897:android:4cae88f839e062d9f20db8",
+        "android_client_info": {
+          "package_name": "com.example.multiscreenapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBFN6jCAV6qyvtpX4B57_UbyyC0yZOdKWs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
