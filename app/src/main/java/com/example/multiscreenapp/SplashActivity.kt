@@ -21,7 +21,7 @@ class SplashActivity : AppCompatActivity() {
 
         // Your animation code here
         Handler(Looper.getMainLooper()).postDelayed({
-            startActivity(Intent(this, MainActivity::class.java))
+            startActivity(Intent(this, LoginActivity::class.java)) // Changed to LoginActivity
             finish()
         }, 2000)
     }
