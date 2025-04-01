@@ -59,6 +59,7 @@ dependencies {
     implementation ("com.google.android.gms:play-services-auth:21.3.0")
     implementation ("com.google.firebase:firebase-auth-ktx:22.3.0")
     implementation (platform("com.google.firebase:firebase-bom:32.2.0"))
+    implementation ("com.google.android.material:material:1.9.0")
     implementation(libs.material)
     implementation(libs.material.v161)
     implementation (libs.androidx.core.ktx.v190)
