@@ -2,4 +2,6 @@
     <string name="app_name">multiScreenApp</string>
     <string name="main_activity">Main Activity</string>
     <string name="forgot_password"><u>Forgot Password?</u></string>
+    <string name="default_web_client_id">16689097897-8h57km5i1pgjkvo2i5tp6s47h4dl74km.apps.googleusercontent.com</string>
+
 </resources>
