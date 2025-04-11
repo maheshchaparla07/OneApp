@@ -1,5 +1,6 @@
 package com.example.multiscreenapp
 
+
 import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
@@ -164,12 +165,12 @@ class LoginActivity : AppCompatActivity() {
 
     private fun navigateToHome() {
         // Make sure the intent uses the correct activity class
-        val intent = Intent(this, MainActivity::class.java)
+        val intent = Intent(this, HomeActivity::class.java)
         startActivity(intent)
         finish()  // Optional: close login activity
     }
 
-    // In your LoginActivity.kt
+    // set up validation
     private fun setupInputValidations() {
         // Email validation
         binding.emailEditText.setOnFocusChangeListener { _, hasFocus ->

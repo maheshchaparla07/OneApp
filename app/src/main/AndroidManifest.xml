@@ -32,8 +32,8 @@
 
         <!-- Main Application Screen -->
         <activity
-            android:name=".MainActivity"
-            android:exported="false"
+            android:name=".HomeActivity"
+            android:exported="true"
             android:theme="@style/Theme.MultiScreenApp"
             android:launchMode="singleTop"
             android:screenOrientation="portrait"/>

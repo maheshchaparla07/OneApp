@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     id("com.google.gms.google-services")
+    id ("kotlin-kapt")
 }
 
 android {
@@ -20,6 +21,7 @@ android {
             useSupportLibrary = true
         }
         buildFeatures {
+            viewBinding = true
             viewBinding = true
         }
     }
@@ -55,6 +57,20 @@ android {
 }
 
 dependencies {
+
+    // Retrofit for API calls
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation ("com.squareup.retrofit2:converter-gson:2.9.0")
+
+    // Glide for image loading
+    implementation ("com.github.bumptech.glide:glide:4.14.2")
+    kapt ("com.github.bumptech.glide:compiler:4.14.2")
+
+    // Coroutines
+    implementation ("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4")
+
+    // Material Design
+    implementation ("com.google.android.material:material:1.9.0")
 
     implementation ("com.google.android.gms:play-services-auth:21.3.0")
     implementation ("com.google.firebase:firebase-auth-ktx:22.3.0")
