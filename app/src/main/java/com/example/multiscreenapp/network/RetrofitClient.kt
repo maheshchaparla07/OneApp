@@ -1,12 +1,13 @@
-package com.example.multiscreenapp.api
+package com.example.multiscreenapp.network
 
+import com.example.multiscreenapp.api.ApiService
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 object RetrofitClient {
-    private const val BASE_URL = "https://api.example.com/"
+    private const val BASE_URL = "https://your-api-base-url.com/"
 
-    val instance: ApiService by lazy {
+    val apiService: ApiService by lazy {
         Retrofit.Builder()
             .baseUrl(BASE_URL)
             .addConverterFactory(GsonConverterFactory.create())
