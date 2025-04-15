@@ -64,8 +64,6 @@ dependencies {
 
     // Glide for image loading
     implementation ("com.github.bumptech.glide:glide:4.14.2")
-    implementation(libs.firebase.appdistribution.gradle)
-    implementation(libs.firebase.firestore.ktx)
     kapt ("com.github.bumptech.glide:compiler:4.14.2")
 
     // Coroutines
@@ -73,6 +71,16 @@ dependencies {
 
     // Material Design
     implementation ("com.google.android.material:material:1.9.0")
+
+    //  QR code scanning
+    implementation ("com.journeyapps:zxing-android-embedded:4.3.0")
+
+    // For loading images from URLs
+    implementation ("com.github.bumptech.glide:glide:4.12.0")
+    annotationProcessor ("com.github.bumptech.glide:compiler:4.12.0")
+
+    // For JSON parsing if needed
+    implementation ("com.google.code.gson:gson:2.8.8")
 
     implementation ("com.google.android.gms:play-services-auth:21.3.0")
     implementation ("com.google.firebase:firebase-auth-ktx:22.3.0")

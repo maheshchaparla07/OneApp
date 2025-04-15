@@ -36,7 +36,15 @@
             android:exported="true"
             android:theme="@style/Theme.MultiScreenApp"
             android:launchMode="singleTop"
-            android:screenOrientation="portrait"/>
+            android:screenOrientation="fullSensor"/>
+
+        <activity
+            android:name="com.journeyapps.barcodescanner.CaptureActivity"
+            android:screenOrientation="fullSensor"
+            tools:replace="android:screenOrientation" />
+
+        <activity android:name=".CaptureActivityPortrait"
+            android:screenOrientation="fullSensor" />
 
         <!-- AdMob Configuration -->
         <meta-data
