@@ -20,6 +20,7 @@ appcompat = "1.7.0"
 material = "1.12.0"
 materialVersion = "1.6.1"
 mediationTestSuite = "3.0.0"
+firebaseAppdistributionGradle = "5.1.1"
 
 [libraries]
 androidx-appcompat-v161 = { module = "androidx.appcompat:appcompat", version.ref = "appcompatVersion" }
@@ -49,6 +50,7 @@ kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", v
 material = { module = "com.google.android.material:material", version.ref = "material" }
 material-v161 = { module = "com.google.android.material:material", version.ref = "materialVersion" }
 mediation-test-suite = { group = "com.google.android.ads", name = "mediation-test-suite", version.ref = "mediationTestSuite" }
+firebase-appdistribution-gradle = { group = "com.google.firebase", name = "firebase-appdistribution-gradle", version.ref = "firebaseAppdistributionGradle" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
