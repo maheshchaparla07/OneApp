@@ -64,7 +64,6 @@ dependencies {
 
     // Glide for image loading
     implementation ("com.github.bumptech.glide:glide:4.14.2")
-    implementation(libs.firebase.appdistribution.gradle)
     kapt ("com.github.bumptech.glide:compiler:4.14.2")
 
     // Coroutines
