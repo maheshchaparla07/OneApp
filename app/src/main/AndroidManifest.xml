@@ -6,12 +6,11 @@
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
-        android:label="OneApp"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.MultiScreenApp">
 
-        <!-- Splash Screen (Launcher Activity) -->
+        <!-- Splash Screen -->
         <activity
             android:name=".SplashActivity"
             android:exported="true"
@@ -45,6 +44,11 @@
 
         <activity android:name=".CaptureActivityPortrait"
             android:screenOrientation="fullSensor" />
+        <activity
+            android:name=".WebViewActivity"
+            android:exported="false">
+            <!-- If you want to support deep linking, add intent filters here -->
+        </activity>
 
         <!-- AdMob Configuration -->
         <meta-data

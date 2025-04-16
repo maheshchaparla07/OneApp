@@ -18,6 +18,7 @@
         android:layout_height="wrap_content"
         android:text="@string/add_api_service"
         android:layout_marginBottom="16dp"/>
+
     <!-- Add this RecyclerView -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/appsRecyclerView"
