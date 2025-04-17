@@ -1,10 +1,9 @@
 package com.example.multiscreenapp
 
-import android.annotation.SuppressLint
+import com.example.multiscreenapp.WebApp
 import android.content.ContentValues.TAG
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
@@ -24,7 +23,9 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.firebase.Firebase
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.firestore
+import java.util.Date
 
 class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, UrlInputDialog.QRScanListener {
 
@@ -33,6 +34,7 @@ class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, Url
     private lateinit var apiServiceAdapter: ApiServiceAdapter
     private lateinit var webAppAdapter: WebAppAdapter
     private val webApps = mutableListOf<WebApp>()
+
 
     // QR Scanner launcher
     private val qrScannerLauncher = registerForActivityResult(ScanContract()) { result ->
@@ -89,7 +91,7 @@ class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, Url
             adapter = webAppAdapter
         }
 
-        loadSavedApps()
+        loadAppsFromFirestore()
     }
 
     private fun showDeleteConfirmationDialog(app: WebApp) {
@@ -115,11 +117,35 @@ class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, Url
     }
 
     override fun onUrlAdded(url: String, name: String) {
-        // Your existing implementation
-        val newApp = WebApp(name, url)
-        webApps.add(newApp)
-        webAppAdapter.notifyItemInserted(webApps.size - 1)
-        saveApps()
+        val userId = auth.currentUser?.uid ?: return
+
+        val newApp = hashMapOf(
+            "name" to name,
+            "url" to url,
+            "userId" to userId,
+            "createdAt" to FieldValue.serverTimestamp()
+        )
+
+        Firebase.firestore.collection("webApps")
+            .add(newApp)
+            .addOnSuccessListener { documentReference ->
+                // Create proper WebApp object with the generated ID
+                val savedApp = WebApp(
+                    id = documentReference.id,
+                    name = name,
+                    url = url,
+                    userId = userId,
+                    createdAt = Date() // Or use server timestamp if needed
+                )
+
+                webApps.add(savedApp)
+                webAppAdapter.notifyItemInserted(webApps.size - 1)
+                Toast.makeText(this, "App saved!", Toast.LENGTH_SHORT).show()
+            }
+            .addOnFailureListener { e ->
+                Log.e(TAG, "Error saving app", e)
+                Toast.makeText(this, "Failed to save app", Toast.LENGTH_SHORT).show()
+            }
     }
 
     override fun onScanRequested() {
@@ -134,39 +160,75 @@ class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, Url
     }
 
     private fun saveApps() {
-        getSharedPreferences("WebAppsPref", Context.MODE_PRIVATE).edit().apply {
+        val user = auth.currentUser
+        val userId = user?.email ?: return // Use UID or email as key
+
+        getSharedPreferences("WebAppsPref_$userId", Context.MODE_PRIVATE).edit().apply {
             putString("webApps", Gson().toJson(webApps))
             apply()
         }
     }
 
     private fun loadSavedApps() {
-        val json = getSharedPreferences("WebAppsPref", Context.MODE_PRIVATE)
+        val user = auth.currentUser
+        val userId = user?.email ?: return
+
+        val json = getSharedPreferences("WebAppsPref_$userId", Context.MODE_PRIVATE)
             .getString("webApps", null) ?: return
 
         val type = object : TypeToken<List<WebApp>>() {}.type
         val savedApps = Gson().fromJson<List<WebApp>>(json, type)
         webApps.clear()
         webApps.addAll(savedApps)
+        webAppAdapter.notifyDataSetChanged()
     }
 
+    private fun loadAppsFromFirestore() {
+        val userId = auth.currentUser?.uid ?: return
+
+        Firebase.firestore.collection("webApps")
+            .whereEqualTo("userId", userId) // Critical: Filter by user
+            .get()
+            .addOnSuccessListener { documents ->
+                val apps = documents.map { doc ->
+                    doc.toObject(WebApp::class.java)
+                }
+                webApps.clear()
+                webApps.addAll(apps)
+                webAppAdapter.notifyDataSetChanged()
+            }
+            .addOnFailureListener { e ->
+                Log.e(TAG, "Error loading apps", e)
+                Toast.makeText(this, "Failed to load apps", Toast.LENGTH_SHORT).show()
+            }
+    }
 
     private fun setupUI() {
-        val user = auth.currentUser
-        val userId = user?.uid ?: return
+        val user = auth.currentUser ?: return
+        val sharedPrefs = getSharedPreferences("UserPrefs", MODE_PRIVATE)
 
-// Fetch user data from Firestore
+        // Try Firestore first
         Firebase.firestore.collection("users")
-            .document(userId)
+            .document(user.uid)
             .get()
             .addOnSuccessListener { document ->
                 val firstName = document.getString("firstName")
-                binding.welcomeText.text = "Welcome, ${firstName ?: user.displayName ?: user.email ?: "User"}"
+                    ?: sharedPrefs.getString("firstName", null)
+
+                binding.welcomeText.text = if (!firstName.isNullOrEmpty()) {
+                    "Welcome, $firstName"
+                } else {
+                    "Welcome" // Fallback if no first name exists anywhere
+                }
             }
             .addOnFailureListener { e ->
-                Log.w(TAG, "Error fetching user data", e)
-                // Fallback to basic welcome if Firestore fails
-                binding.welcomeText.text = "Welcome, ${user.displayName ?: user.email ?: "User"}"
+                Log.w(TAG, "Firestore fetch failed, using local data", e)
+                val localFirstName = sharedPrefs.getString("firstName", null)
+                binding.welcomeText.text = if (!localFirstName.isNullOrEmpty()) {
+                    "Welcome, $localFirstName"
+                } else {
+                    "Welcome, ${user.displayName ?: user.email ?: "User"}" // Ultimate fallback
+                }
             }
     }
 
@@ -178,7 +240,7 @@ class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, Url
         }
     }
 
-    data class WebApp(val name: String, val url: String, val iconUrl: String? = null)
+
     data class ApiService(val name: String, val description: String)
 
     class ApiServiceAdapter : ListAdapter<ApiService, ApiServiceAdapter.ApiServiceViewHolder>(
@@ -224,11 +286,22 @@ class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, Url
     }
     private fun logoutUser() {
         auth.signOut()
-        // Navigate back to LoginActivity and clear the back stack
+
+        // Clear user-specific SharedPreferences
+        val userId = auth.currentUser?.email
+        if (userId != null) {
+            getSharedPreferences("WebAppsPref_$userId", Context.MODE_PRIVATE).edit().clear().apply()
+        }
+
+        // Navigate to LoginActivity
         val intent = Intent(this, LoginActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }
         startActivity(intent)
         finish()
     }
+
 }
+
+
+

@@ -1,8 +1,15 @@
 package com.example.multiscreenapp
 
+import com.google.firebase.auth.FirebaseAuth
+import java.util.Date
+
 
 data class WebApp(
-    val name: String,
-    val url: String,
-    val iconUrl: String? = null  // Make sure this is properly defined
+    val id: String = "",  // Important for document reference
+    val name: String = "",
+    val url: String = "",
+    val userId: String = "",
+    val createdAt: Date? = null,
+    val iconUrl: String? = null,
+
 )

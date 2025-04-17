@@ -1,6 +1,6 @@
 package com.example.multiscreenapp
 
-
+import com.example.multiscreenapp.WebApp
 import SignUpDialog
 import android.content.Intent
 import android.os.Bundle
@@ -17,8 +17,6 @@ import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
-import com.google.android.gms.tasks.OnFailureListener
-import com.google.android.gms.tasks.OnSuccessListener
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
@@ -257,13 +255,9 @@ class LoginActivity : AppCompatActivity() {
             }
     }
 
-    private fun saveUserProfile(
-        firstName: String,
-        lastName: String,
-        dob: String,
-        email: String
-    ) {
-        // save to Firestorm or Realtime Database
+    private fun saveUserProfile(firstName: String, lastName: String, dob: String, email: String) {
+        val userId = auth.currentUser?.uid ?: return
+
         val user = hashMapOf(
             "firstName" to firstName,
             "lastName" to lastName,
@@ -271,10 +265,6 @@ class LoginActivity : AppCompatActivity() {
             "email" to email
         )
 
-        // Get current user ID
-        val userId = auth.currentUser?.uid ?: return
-
-        // Add to Firestore
         Firebase.firestore.collection("users")
             .document(userId)
             .set(user)
@@ -282,7 +272,8 @@ class LoginActivity : AppCompatActivity() {
                 Log.d(TAG, "User profile created")
                 navigateToHome()
             }
-            .addOnFailureListener { e -> Log.w(TAG, "Error saving user profile", e)
+            .addOnFailureListener { e ->
+                Log.w(TAG, "Error saving user profile", e)
             }
     }
 

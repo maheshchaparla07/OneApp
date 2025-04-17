@@ -1,5 +1,6 @@
 package com.example.multiscreenapp
 
+import com.example.multiscreenapp.WebApp
 import android.net.Uri
 import android.view.LayoutInflater
 import android.view.View
@@ -12,9 +13,9 @@ import com.bumptech.glide.Glide
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 class WebAppAdapter(
-    private val apps: MutableList<HomeActivity.WebApp>,
-    private val onClick: (HomeActivity.WebApp) -> Unit,
-    private val onDelete: (HomeActivity.WebApp) -> Unit // New parameter for delete callback
+    private val apps: MutableList<WebApp>,
+    private val onClick: (WebApp) -> Unit,
+    private val onDelete: (WebApp) -> Unit // New parameter for delete callback
 ) : RecyclerView.Adapter<WebAppAdapter.WebAppViewHolder>() {
 
     class WebAppViewHolder(view: View) : RecyclerView.ViewHolder(view) {
@@ -75,7 +76,7 @@ class WebAppAdapter(
         }
     }
 
-    private fun showDeleteConfirmationDialog(context: android.content.Context, app: HomeActivity.WebApp) {
+    private fun showDeleteConfirmationDialog(context: android.content.Context, app: WebApp) {
         MaterialAlertDialogBuilder(context)
             .setTitle("Delete App")
             .setMessage("Are you sure you want to delete ${app.name}?")
