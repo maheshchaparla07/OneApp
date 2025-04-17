@@ -1,5 +1,6 @@
 package com.example.multiscreenapp
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -19,6 +20,7 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, UrlInputDialog.QRScanListener {
 
@@ -56,6 +58,10 @@ class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, Url
 
         binding.fabAddApp.setOnClickListener {
             showUrlInputDialog()
+        }
+
+        binding.logoutButton.setOnClickListener {
+            showLogoutConfirmationDialog()
         }
     }
 
@@ -117,6 +123,7 @@ class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, Url
         webApps.addAll(savedApps)
     }
 
+    @SuppressLint("SetTextI18n")
     private fun setupUI() {
         val user = auth.currentUser
         binding.welcomeText.text = "Welcome, ${user?.displayName ?: user?.email ?: "User"}"
@@ -128,13 +135,6 @@ class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, Url
             layoutManager = LinearLayoutManager(this@HomeActivity)
             adapter = apiServiceAdapter
         }
-
-        // Sample data
-        apiServiceAdapter.submitList(listOf(
-            ApiService("Weather API", "Get current weather data"),
-            ApiService("News API", "Latest news headlines"),
-            ApiService("Currency API", "Real-time exchange rates")
-        ))
     }
 
     data class WebApp(val name: String, val url: String, val iconUrl: String? = null)
@@ -171,5 +171,23 @@ class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, Url
             override fun areContentsTheSame(oldItem: ApiService, newItem: ApiService) =
                 oldItem == newItem
         }
+    }
+    private fun showLogoutConfirmationDialog() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Confirm Logout")
+            .setMessage("Are you sure you want to logout?")
+            .setPositiveButton("Logout") { _, _ -> logoutUser()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+    private fun logoutUser() {
+        auth.signOut()
+        // Navigate back to LoginActivity and clear the back stack
+        val intent = Intent(this, LoginActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        startActivity(intent)
+        finish()
     }
 }
