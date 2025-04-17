@@ -1,6 +1,7 @@
 package com.example.multiscreenapp
 
 
+import SignUpDialog
 import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
@@ -22,6 +23,7 @@ import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.auth
+import com.google.firebase.firestore.firestore
 
 class LoginActivity : AppCompatActivity() {
 
@@ -67,6 +69,9 @@ class LoginActivity : AppCompatActivity() {
             if (validateInput(email, password)) {
                 signUpUser(email, password)
             }
+        }
+        binding.signUpButton.setOnClickListener {
+            showSignUpDialog()
         }
 
         binding.forgotPasswordText.setOnClickListener {
@@ -134,6 +139,7 @@ class LoginActivity : AppCompatActivity() {
         }, 15000) // 15-second timeout
     }
 
+    @Deprecated("This method has been deprecated in favor of using the Activity Result API\n      which brings increased type safety via an {@link ActivityResultContract} and the prebuilt\n      contracts for common intents available in\n      {@link androidx.activity.result.contract.ActivityResultContracts}, provides hooks for\n      testing, and allow receiving results in separate, testable classes independent from your\n      activity. Use\n      {@link #registerForActivityResult(ActivityResultContract, ActivityResultCallback)}\n      with the appropriate {@link ActivityResultContract} and handling the result in the\n      {@link ActivityResultCallback#onActivityResult(Object) callback}.")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
 
@@ -222,6 +228,67 @@ class LoginActivity : AppCompatActivity() {
         }
     }
 
+    private fun showSignUpDialog() {
+        val dialog = SignUpDialog(this) { email, password, firstName, lastName, dob ->
+            // Handle the signup with the collected data
+            signUpUser(email, password, firstName, lastName, dob)
+        }
+        dialog.show()
+    }
+
+    private fun signUpUser(
+        email: String,
+        password: String,
+        firstName: String,
+        lastName: String,
+        dob: String
+    ) {
+        binding.progressBar.visibility = View.VISIBLE
+        auth.createUserWithEmailAndPassword(email, password)
+            .addOnCompleteListener(this) { task ->
+                binding.progressBar.visibility = View.GONE
+                if (task.isSuccessful) {
+                    // Save additional user data to Firestore or Realtime Database
+                    saveUserProfile(firstName, lastName, dob, email)
+                    Toast.makeText(this, "Signup Successful", Toast.LENGTH_SHORT).show()
+                } else {
+                    showError("Registration failed: ${task.exception?.message}")
+                }
+            }
+    }
+
+    private fun saveUserProfile(
+        firstName: String,
+        lastName: String,
+        dob: String,
+        email: String
+    ) {
+        // save to Firestorm or Realtime Database
+        val user = hashMapOf(
+            "firstName" to firstName,
+            "lastName" to lastName,
+            "dob" to dob,
+            "email" to email
+        )
+
+        // Get current user ID
+        val userId = auth.currentUser?.uid ?: return
+
+        // Add to Firestore
+        Firebase.firestore.collection("users")
+            .document(userId)
+            .set(user)
+            .addOnSuccessListener {
+                Log.d(TAG, "User profile created")
+                navigateToHome()
+            }
+            .addOnFailureListener { e -> Log.w(TAG, "Error saving user profile", e)
+            }
+    }
+
+    companion object {
+        private const val TAG = "LoginActivity"
+    }
 
     private fun showError(message: String?) {
         Toast.makeText(

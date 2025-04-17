@@ -1,23 +1,64 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="wrap_content"
+<androidx.cardview.widget.CardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:gravity="center"
-    android:padding="16dp">
+    android:layout_margin="8dp"
+    app:cardCornerRadius="8dp"
+    app:cardElevation="4dp">
 
-    <ImageView
-        android:id="@+id/appIcon"
-        android:layout_width="64dp"
-        android:layout_height="64dp"
-        android:scaleType="fitCenter"/>
-
-    <TextView
-        android:id="@+id/appName"
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:maxLines="1"
-        android:ellipsize="end"
-        android:textSize="14sp"/>
-</LinearLayout>
+        android:orientation="vertical"
+        android:paddingBottom="12dp">
+
+        <!-- FrameLayout containing icon and close button -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="121dp"
+            android:padding="8dp">
+
+            <!-- App icon centered horizontally -->
+            <ImageView
+                android:id="@+id/appIcon"
+                android:layout_width="wrap_content"
+                android:layout_height="76dp"
+                android:layout_gravity="center_horizontal|top"
+                android:layout_marginTop="12dp"
+                android:contentDescription="@string/app_icon"
+                android:src="@drawable/ic_web" />
+
+            <!-- Close button in top-right corner -->
+            <ImageButton
+                android:id="@+id/btnClose"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_gravity="right|top"
+                android:layout_margin="4dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/close_app"
+                android:elevation="2dp"
+                android:padding="4dp"
+                android:src="@drawable/ic_close"
+                tools:ignore="RtlHardcoded" />
+        </FrameLayout>
+
+        <!-- App name below FrameLayout -->
+        <TextView
+            android:id="@+id/appName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="4dp"
+            android:layout_marginEnd="16dp"
+            android:ellipsize="end"
+            android:gravity="center"
+            android:maxLines="2"
+            android:textAppearance="?attr/textAppearanceBodyMedium"
+            android:textSize="16sp"
+            tools:text="Example App" />
+    </LinearLayout>
+</androidx.cardview.widget.CardView>

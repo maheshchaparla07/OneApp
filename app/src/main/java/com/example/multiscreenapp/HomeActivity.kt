@@ -1,10 +1,12 @@
 package com.example.multiscreenapp
 
 import android.annotation.SuppressLint
+import android.content.ContentValues.TAG
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.*
@@ -21,6 +23,8 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.firebase.Firebase
+import com.google.firebase.firestore.firestore
 
 class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, UrlInputDialog.QRScanListener {
 
@@ -66,13 +70,19 @@ class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, Url
     }
 
     private fun setupWebAppRecyclerView() {
-        webAppAdapter = WebAppAdapter(webApps) { app ->
-            val intent = Intent(this, WebViewActivity::class.java).apply {
-                putExtra("url", app.url)
-                putExtra("title", app.name)
+        webAppAdapter = WebAppAdapter(
+            apps = webApps,
+            onClick = { app ->
+                val intent = Intent(this, WebViewActivity::class.java).apply {
+                    putExtra("url", app.url)
+                    putExtra("title", app.name)
+                }
+                startActivity(intent)
+            },
+            onDelete = { app ->
+                showDeleteConfirmationDialog(app)
             }
-            startActivity(intent)
-        }
+        )
 
         binding.appsRecyclerView.apply {
             layoutManager = GridLayoutManager(this@HomeActivity, 3)
@@ -80,6 +90,23 @@ class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, Url
         }
 
         loadSavedApps()
+    }
+
+    private fun showDeleteConfirmationDialog(app: WebApp) {
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Remove App")
+            .setMessage("Remove ${app.name} from your home screen?")
+            .setPositiveButton("Remove") { _, _ ->
+                val position = webApps.indexOf(app)
+                if (position != -1) {
+                    webApps.removeAt(position)
+                    webAppAdapter.notifyItemRemoved(position)
+                    saveApps()
+                    Toast.makeText(this, "${app.name} removed", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     private fun showUrlInputDialog(prefilledUrl: String = "") {
@@ -96,7 +123,7 @@ class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, Url
     }
 
     override fun onScanRequested() {
-        // Your existing QR scan implementation
+        // QR scan implementation
         val options = ScanOptions().apply {
             setPrompt("Scan a QR code")
             setBeepEnabled(true)
@@ -123,10 +150,24 @@ class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, Url
         webApps.addAll(savedApps)
     }
 
-    @SuppressLint("SetTextI18n")
+
     private fun setupUI() {
         val user = auth.currentUser
-        binding.welcomeText.text = "Welcome, ${user?.displayName ?: user?.email ?: "User"}"
+        val userId = user?.uid ?: return
+
+// Fetch user data from Firestore
+        Firebase.firestore.collection("users")
+            .document(userId)
+            .get()
+            .addOnSuccessListener { document ->
+                val firstName = document.getString("firstName")
+                binding.welcomeText.text = "Welcome, ${firstName ?: user.displayName ?: user.email ?: "User"}"
+            }
+            .addOnFailureListener { e ->
+                Log.w(TAG, "Error fetching user data", e)
+                // Fallback to basic welcome if Firestore fails
+                binding.welcomeText.text = "Welcome, ${user.displayName ?: user.email ?: "User"}"
+            }
     }
 
     private fun setupRecyclerView() {
