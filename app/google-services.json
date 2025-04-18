@@ -7,9 +7,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:16689097897:android:93405b87dfece6caf20db8",
+        "mobilesdk_app_id": "1:16689097897:android:9b9c65572af8553bf20db8",
         "android_client_info": {
-          "package_name": "com.example.multiscreenapp"
+          "package_name": "uk.ac.tees.mad.s3445191"
         }
       },
       "oauth_client": [

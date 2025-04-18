@@ -1,6 +1,6 @@
-package com.example.multiscreenapp
+package uk.ac.tees.mad.s3445191
 
-import com.example.multiscreenapp.WebApp
+import uk.ac.tees.mad.s3445191.WebApp
 import android.net.Uri
 import android.view.LayoutInflater
 import android.view.View

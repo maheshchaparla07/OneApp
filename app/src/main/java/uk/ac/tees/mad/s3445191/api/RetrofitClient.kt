@@ -1,4 +1,4 @@
-package com.example.multiscreenapp.api
+package uk.ac.tees.mad.s3445191.api
 
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory

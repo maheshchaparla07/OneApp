@@ -1,4 +1,4 @@
-package com.example.multiscreenapp.api
+package uk.ac.tees.mad.s3445191.api
 
 import retrofit2.Response
 import retrofit2.http.GET

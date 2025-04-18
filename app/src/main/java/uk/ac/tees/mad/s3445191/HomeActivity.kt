@@ -1,6 +1,5 @@
-package com.example.multiscreenapp
+package uk.ac.tees.mad.s3445191
 
-import com.example.multiscreenapp.WebApp
 import android.content.ContentValues.TAG
 import android.content.Context
 import android.content.Intent
@@ -9,8 +8,6 @@ import android.util.Log
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.*
-import com.example.multiscreenapp.databinding.ActivityHomeBinding
-import com.example.multiscreenapp.databinding.ItemApiServiceBinding
 import com.google.firebase.auth.FirebaseAuth
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -25,6 +22,8 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.firebase.Firebase
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.firestore
+import uk.ac.tees.mad.s3445191.databinding.ActivityHomeBinding
+import uk.ac.tees.mad.s3445191.databinding.ItemApiServiceBinding
 import java.util.Date
 
 class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, UrlInputDialog.QRScanListener {

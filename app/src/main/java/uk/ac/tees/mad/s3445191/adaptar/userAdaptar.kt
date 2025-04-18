@@ -1,4 +1,4 @@
-package com.example.multiscreenapp.adaptar
+package uk.ac.tees.mad.s3445191.adaptar
 
 import android.view.LayoutInflater
 import android.view.ViewGroup
@@ -6,8 +6,8 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
-import com.example.multiscreenapp.api.User
-import com.example.multiscreenapp.databinding.ItemUserBinding
+import uk.ac.tees.mad.s3445191.api.User
+import uk.ac.tees.mad.s3445191.databinding.ItemUserBinding
 
 class UserAdapter : ListAdapter<User, UserAdapter.UserViewHolder>(UserDiffCallback()) {
 

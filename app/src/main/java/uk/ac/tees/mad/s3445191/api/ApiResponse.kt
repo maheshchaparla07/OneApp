@@ -1,4 +1,4 @@
-package com.example.multiscreenapp.api
+package uk.ac.tees.mad.s3445191.api
 
 data class ApiResponse(
     val id: String,

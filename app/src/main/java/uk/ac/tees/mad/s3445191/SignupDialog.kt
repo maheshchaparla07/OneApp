@@ -3,7 +3,7 @@ import android.app.Dialog
 import android.content.Context
 import android.os.Bundle
 import android.view.ViewGroup
-import com.example.multiscreenapp.databinding.DialogSignupBinding
+import uk.ac.tees.mad.s3445191.databinding.DialogSignupBinding
 import java.util.Calendar
 
 class SignUpDialog(

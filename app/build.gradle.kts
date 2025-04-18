@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.multiscreenapp"
+    namespace = "uk.ac.tees.mad.s3445191"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.multiscreenapp"
+        applicationId = "uk.ac.tees.mad.s3445191"
         minSdk = 24
         targetSdk = 34
         versionCode = 1

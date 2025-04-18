@@ -1,4 +1,4 @@
-package com.example.multiscreenapp
+package uk.ac.tees.mad.s3445191
 
 import android.annotation.SuppressLint
 import android.os.Bundle
