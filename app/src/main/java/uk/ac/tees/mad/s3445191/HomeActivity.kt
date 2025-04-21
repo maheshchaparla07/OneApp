@@ -4,27 +4,36 @@ import android.content.ContentValues.TAG
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
+import android.view.LayoutInflater
+import android.view.ViewGroup
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.*
+import com.google.android.gms.common.ConnectionResult
+import com.google.android.gms.common.GoogleApiAvailability
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.firestore
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
-import android.view.LayoutInflater
-import android.view.ViewGroup
-import androidx.recyclerview.widget.DiffUtil
-import androidx.recyclerview.widget.ListAdapter
-import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.google.firebase.Firebase
-import com.google.firebase.firestore.FieldValue
-import com.google.firebase.firestore.firestore
+import kotlinx.coroutines.launch
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
+import uk.ac.tees.mad.s3445191.api.ApiClient
+import uk.ac.tees.mad.s3445191.api.TimeResponse
 import uk.ac.tees.mad.s3445191.databinding.ActivityHomeBinding
 import uk.ac.tees.mad.s3445191.databinding.ItemApiServiceBinding
-import java.util.Date
+import java.text.SimpleDateFormat
+import java.util.*
 
 class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, UrlInputDialog.QRScanListener {
 
@@ -33,7 +42,14 @@ class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, Url
     private lateinit var apiServiceAdapter: ApiServiceAdapter
     private lateinit var webAppAdapter: WebAppAdapter
     private val webApps = mutableListOf<WebApp>()
-
+    private lateinit var timeFormat: SimpleDateFormat
+    private var timeUpdateHandler: Handler? = null
+    private val timeUpdateRunnable = object : Runnable {
+        override fun run() {
+            fetchUkTime()
+            timeUpdateHandler?.postDelayed(this, 60000) // Update every minute
+        }
+    }
 
     // QR Scanner launcher
     private val qrScannerLauncher = registerForActivityResult(ScanContract()) { result ->
@@ -52,6 +68,9 @@ class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, Url
         setContentView(binding.root)
 
         auth = FirebaseAuth.getInstance()
+        timeFormat = SimpleDateFormat("HH:mm:ss", Locale.UK)
+        binding.currentTimeText.text = "Loading UK time..."
+
         setupUI()
         setupRecyclerView()
         setupWebAppRecyclerView()
@@ -69,6 +88,69 @@ class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, Url
             showLogoutConfirmationDialog()
         }
     }
+
+    override fun onResume() {
+        super.onResume()
+        fetchUkTime() // Initial fetch
+        timeUpdateHandler = Handler(Looper.getMainLooper())
+        timeUpdateHandler?.postDelayed(timeUpdateRunnable, 60000) // Update every minute
+    }
+
+    override fun onPause() {
+        super.onPause()
+        timeUpdateHandler?.removeCallbacks(timeUpdateRunnable)
+        timeUpdateHandler = null
+    }
+
+    private fun fetchUkTime() {
+        if (!isGooglePlayServicesAvailable()) {
+            showLocalTimeFallback()
+            return
+        }
+
+        lifecycleScope.launch {
+            try {
+                val response = ApiClient.timeApiService.getUkTime()
+                if (response.isSuccessful) {
+                    response.body()?.let { timeResponse ->
+                        val dateTime = timeResponse.datetime.substringBefore(".")
+                        val parsedTime = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.UK).parse(dateTime)
+
+                        parsedTime?.let {
+                            val formattedTime = timeFormat.format(it)
+                            updateTimeDisplay(formattedTime)
+                        }
+                    }
+                } else {
+                    showLocalTimeFallback()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to fetch UK time", e)
+                showLocalTimeFallback()
+            }
+        }
+    }
+
+    private fun isGooglePlayServicesAvailable(): Boolean {
+        val googleApiAvailability = GoogleApiAvailability.getInstance()
+        val resultCode = googleApiAvailability.isGooglePlayServicesAvailable(this)
+        return resultCode == ConnectionResult.SUCCESS
+    }
+
+    private fun showLocalTimeFallback() {
+        val currentTime = Calendar.getInstance().apply {
+            timeZone = TimeZone.getTimeZone("Europe/London")
+        }.time
+        val formattedTime = timeFormat.format(currentTime)
+        updateTimeDisplay("Local UK Time: $formattedTime*")
+    }
+
+    private fun updateTimeDisplay(timeText: String) {
+        runOnUiThread {
+            binding.currentTimeText.text = timeText
+        }
+    }
+
 
     private fun setupWebAppRecyclerView() {
         webAppAdapter = WebAppAdapter(
@@ -111,7 +193,6 @@ class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, Url
     }
 
     private fun showUrlInputDialog(prefilledUrl: String = "") {
-        // Use the companion object to create new instance
         UrlInputDialog.newInstance(prefilledUrl).show(supportFragmentManager, "UrlInputDialog")
     }
 
@@ -128,13 +209,12 @@ class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, Url
         Firebase.firestore.collection("webApps")
             .add(newApp)
             .addOnSuccessListener { documentReference ->
-                // Create proper WebApp object with the generated ID
                 val savedApp = WebApp(
                     id = documentReference.id,
                     name = name,
                     url = url,
                     userId = userId,
-                    createdAt = Date() // Or use server timestamp if needed
+                    createdAt = Date()
                 )
 
                 webApps.add(savedApp)
@@ -148,7 +228,6 @@ class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, Url
     }
 
     override fun onScanRequested() {
-        // QR scan implementation
         val options = ScanOptions().apply {
             setPrompt("Scan a QR code")
             setBeepEnabled(true)
@@ -160,7 +239,7 @@ class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, Url
 
     private fun saveApps() {
         val user = auth.currentUser
-        val userId = user?.email ?: return // Use UID or email as key
+        val userId = user?.email ?: return
 
         getSharedPreferences("WebAppsPref_$userId", Context.MODE_PRIVATE).edit().apply {
             putString("webApps", Gson().toJson(webApps))
@@ -186,7 +265,7 @@ class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, Url
         val userId = auth.currentUser?.uid ?: return
 
         Firebase.firestore.collection("webApps")
-            .whereEqualTo("userId", userId) // Critical: Filter by user
+            .whereEqualTo("userId", userId)
             .get()
             .addOnSuccessListener { documents ->
                 val apps = documents.map { doc ->
@@ -206,7 +285,6 @@ class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, Url
         val user = auth.currentUser ?: return
         val sharedPrefs = getSharedPreferences("UserPrefs", MODE_PRIVATE)
 
-        // Try Firestore first
         Firebase.firestore.collection("users")
             .document(user.uid)
             .get()
@@ -217,7 +295,7 @@ class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, Url
                 binding.welcomeText.text = if (!firstName.isNullOrEmpty()) {
                     "Welcome, $firstName"
                 } else {
-                    "Welcome" // Fallback if no first name exists anywhere
+                    "Welcome"
                 }
             }
             .addOnFailureListener { e ->
@@ -226,7 +304,7 @@ class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, Url
                 binding.welcomeText.text = if (!localFirstName.isNullOrEmpty()) {
                     "Welcome, $localFirstName"
                 } else {
-                    "Welcome, ${user.displayName ?: user.email ?: "User"}" // Ultimate fallback
+                    "Welcome, ${user.displayName ?: user.email ?: "User"}"
                 }
             }
     }
@@ -239,6 +317,28 @@ class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, Url
         }
     }
 
+    private fun showLogoutConfirmationDialog() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Confirm Logout")
+            .setMessage("Are you sure you want to logout?")
+            .setPositiveButton("Logout") { _, _ -> logoutUser() }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun logoutUser() {
+        auth.signOut()
+        val userId = auth.currentUser?.email
+        if (userId != null) {
+            getSharedPreferences("WebAppsPref_$userId", Context.MODE_PRIVATE).edit().clear().apply()
+        }
+
+        val intent = Intent(this, LoginActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        startActivity(intent)
+        finish()
+    }
 
     data class ApiService(val name: String, val description: String)
 
@@ -274,33 +374,4 @@ class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, Url
                 oldItem == newItem
         }
     }
-    private fun showLogoutConfirmationDialog() {
-        MaterialAlertDialogBuilder(this)
-            .setTitle("Confirm Logout")
-            .setMessage("Are you sure you want to logout?")
-            .setPositiveButton("Logout") { _, _ -> logoutUser()
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
-    }
-    private fun logoutUser() {
-        auth.signOut()
-
-        // Clear user-specific SharedPreferences
-        val userId = auth.currentUser?.email
-        if (userId != null) {
-            getSharedPreferences("WebAppsPref_$userId", Context.MODE_PRIVATE).edit().clear().apply()
-        }
-
-        // Navigate to LoginActivity
-        val intent = Intent(this, LoginActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        }
-        startActivity(intent)
-        finish()
-    }
-
 }
-
-
-

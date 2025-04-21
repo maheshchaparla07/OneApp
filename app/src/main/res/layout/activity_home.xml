@@ -68,13 +68,31 @@
         </LinearLayout>
     </ScrollView>
 
-    <!-- FAB should be outside ScrollView to stay fixed -->
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/fabAddApp"
-        android:layout_width="wrap_content"
+    <RelativeLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_margin="16dp"
-        android:contentDescription="TODO"
-        android:src="@android:drawable/ic_input_add" />
+        android:layout_margin="16dp">
+
+        <!-- Time display text -->
+
+        <!-- FAB button -->
+        <TextView
+            android:id="@+id/currentTimeText"
+            android:layout_width="268dp"
+            android:layout_height="46dp"
+            android:layout_alignParentEnd="true"
+            android:layout_marginEnd="79dp"
+            android:layout_toStartOf="@+id/fabAddApp"
+            android:text="Loading UK time..."
+            android:textColor="?android:attr/textColorPrimary"
+            android:textSize="16sp" />
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/fabAddApp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:contentDescription="@string/add_app"
+            android:src="@android:drawable/ic_input_add" />
+    </RelativeLayout>
 </LinearLayout>

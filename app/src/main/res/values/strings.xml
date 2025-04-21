@@ -9,5 +9,6 @@
     <string name="logout">Logout</string>
     <string name="close_app">Close app</string>
     <string name="app_icon">App icon</string>
+    <string name="add_app">Add Api</string>
 
 </resources>
