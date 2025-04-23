@@ -3,14 +3,17 @@ package uk.ac.tees.mad.s3445191
 import SignUpDialog
 import android.content.Intent
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.text.Editable
 import android.text.TextWatcher
 import android.util.Log
 import android.view.View
 import android.widget.Toast
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
@@ -20,6 +23,11 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.auth
 import com.google.firebase.firestore.firestore
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 import uk.ac.tees.mad.s3445191.databinding.ActivityLoginBinding
 
 class LoginActivity : AppCompatActivity() {
@@ -27,167 +35,283 @@ class LoginActivity : AppCompatActivity() {
     private lateinit var binding: ActivityLoginBinding
     private lateinit var googleSignInClient: GoogleSignInClient
     private lateinit var auth: FirebaseAuth
-    private val RC_SIGN_IN = 9001
     private var isAuthComplete = false
+    private lateinit var googleSignInLauncher: ActivityResultLauncher<Intent>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityLoginBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Initialize Firebase Auth
+        // Initialize Firebase
         auth = Firebase.auth
+        if (auth.currentUser != null) navigateToHome()
 
-        // Configure Google Sign In
+
+
+        setupGoogleSignIn()
+        setupUIListeners()
+        setupInputValidations()
+
+    }
+
+    //Configures Google Sign-In options and initializes client
+    private fun setupGoogleSignIn() {
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestIdToken(getString(R.string.default_web_client_id))
             .requestEmail()
             .build()
         googleSignInClient = GoogleSignIn.getClient(this, gso)
-
-        // Set up click listeners
-        binding.btnGoogleSignIn.setOnClickListener {
-            signInWithGoogle()
-        }
-
-        binding.loginButton.setOnClickListener {
-            val email = binding.emailEditText.text.toString()
-            val password = binding.passwordEditText.text.toString()
-
-            if (validateInput(email, password)) {
-                loginUser(email, password)
-            }
-        }
-
-        binding.signUpButton.setOnClickListener {
-            val email = binding.emailEditText.text.toString()
-            val password = binding.passwordEditText.text.toString()
-
-            if (validateInput(email, password)) {
-                signUpUser(email, password)
-            }
-        }
-        binding.signUpButton.setOnClickListener {
-            showSignUpDialog()
-        }
-
-        binding.forgotPasswordText.setOnClickListener {
-            Toast.makeText(this, "Forgot password clicked", Toast.LENGTH_SHORT).show()
+        googleSignInLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+            handleGoogleSignInResult(it.data)
         }
     }
 
-    private fun validateInput(email: String, password: String): Boolean {
-        if (email.isEmpty()) {
-            binding.emailLayout.error = "Email is required"
-            return false
-        }
-        binding.emailLayout.error = null
-
-        if (password.isEmpty()) {
-            binding.passwordLayout.error = "Password is required"
-            return false
-        }
-        binding.passwordLayout.error = null
-
-        return true
-    }
-
-    private fun loginUser(email: String, password: String) {
-        binding.progressBar.visibility = View.VISIBLE
-        auth.signInWithEmailAndPassword(email, password)
-            .addOnCompleteListener(this) { task ->
-                binding.progressBar.visibility = View.GONE
-                if (task.isSuccessful) {
-                    navigateToHome()
-                } else {
-                    showError("Authentication failed: ${task.exception?.message}")
-                }
+    //Sets up click listeners for UI elements
+    private fun setupUIListeners() {
+        binding.apply {
+            btnGoogleSignIn.setOnClickListener { signInWithGoogle() }
+            loginButton.setOnClickListener { handleEmailLogin() }
+            signUpButton.setOnClickListener { showSignUpDialog() }
+            forgotPasswordText.setOnClickListener {
+                Toast.makeText(this@LoginActivity, "Forgot password clicked", Toast.LENGTH_SHORT).show()
             }
+        }
     }
 
-    private fun signUpUser(email: String, password: String) {
-        binding.progressBar.visibility = View.VISIBLE
-        auth.createUserWithEmailAndPassword(email, password)
-            .addOnCompleteListener(this) { task ->
-                binding.progressBar.visibility = View.GONE
-                if (task.isSuccessful) {
-                    Toast.makeText(this, "Signup Successful", Toast.LENGTH_SHORT).show()
-                    LoginActivity()
-                } else {
-                    showError("Registration failed: ${task.exception?.message}")
-                }
-            }
-    }
-
+    //Google Sign-In flow with timeout handling
     private fun signInWithGoogle() {
         isAuthComplete = false
         binding.progressBar.visibility = View.VISIBLE
-        try {
-            val signInIntent = googleSignInClient.signInIntent
-            startActivityForResult(signInIntent, RC_SIGN_IN)
-        } catch (e: Exception) {
-            binding.progressBar.visibility = View.GONE
-            showError("Sign-in failed: ${e.message}")
-        }
 
-        // Add timeout watchdog
-        Handler(Looper.getMainLooper()).postDelayed({
-            if (!isAuthComplete) showError("Sign-in timeout")
-        }, 15000) // 15-second timeout
+        lifecycleScope.launch {
+            try {
+                val signInIntent = googleSignInClient.signInIntent
+                googleSignInLauncher.launch(signInIntent)
+
+                //timeout for authentication process
+                withContext(Dispatchers.IO) {
+                    delay(45000)
+                    if (!isAuthComplete) {
+                        withContext(Dispatchers.Main) {
+                            showError("Sign-in timeout")
+                            binding.progressBar.visibility = View.GONE
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    showError("Sign-in failed: ${e.message}")
+                    binding.progressBar.visibility = View.GONE
+                }
+            }
+        }
     }
 
-    @Deprecated("This method has been deprecated in favor of using the Activity Result API\n      which brings increased type safety via an {@link ActivityResultContract} and the prebuilt\n      contracts for common intents available in\n      {@link androidx.activity.result.contract.ActivityResultContracts}, provides hooks for\n      testing, and allow receiving results in separate, testable classes independent from your\n      activity. Use\n      {@link #registerForActivityResult(ActivityResultContract, ActivityResultCallback)}\n      with the appropriate {@link ActivityResultContract} and handling the result in the\n      {@link ActivityResultCallback#onActivityResult(Object) callback}.")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
+    //Handles email & password login validation
+    private fun handleEmailLogin() {
+        val email = binding.emailEditText.text.toString()
+        val password = binding.passwordEditText.text.toString()
+        if (validateInput(email, password)) loginUser(email, password)
+    }
 
-        if (requestCode == RC_SIGN_IN) {
+    //Authenticate user with Firebase using email/password
+    private fun loginUser(email: String, password: String) {
+        binding.progressBar.visibility = View.VISIBLE
+        lifecycleScope.launch(Dispatchers.IO) {
             try {
-                val account = GoogleSignIn.getSignedInAccountFromIntent(data)
-                    .getResult(ApiException::class.java)
-                account?.idToken?.let { firebaseAuthWithGoogle(it) }
-            } catch (e: ApiException) {
-                binding.progressBar.visibility = View.GONE
-                showError("Google sign-in failed: ${e.message}")
+                auth.signInWithEmailAndPassword(email, password).await()
+                withContext(Dispatchers.Main) {
+                    navigateToHome()
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    showError("Authentication failed: ${e.message}")
+                    binding.progressBar.visibility = View.GONE
+                }
             }
+        }
+    }
+
+    // Signup user
+    private fun showSignUpDialog() {
+        val dialog = SignUpDialog(this) { email, password, firstName, lastName, dob ->
+            signUpUserWithDetails(email, password, firstName, lastName, dob)
+        }
+        dialog.show()
+    }
+
+
+
+    //popup signup screen and store the data in firebase authentication thru auth
+    private fun signUpUserWithDetails(
+        email: String,
+        password: String,
+        firstName: String,
+        lastName: String,
+        dob: String
+    ) {
+        binding.progressBar.visibility = View.VISIBLE
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                //create firebase user account
+                auth.createUserWithEmailAndPassword(email, password).await()
+                saveUserProfile(firstName, lastName, dob, email)
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@LoginActivity, "Signup Successful", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    showError("Registration failed: ${e.message}")
+                    binding.progressBar.visibility = View.GONE
+                }
+            }
+        }
+    }
+
+    private fun saveUserProfile(
+        firstName: String,
+        lastName: String,
+        dob: String,
+        email: String
+    ) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val userId = auth.currentUser?.uid ?: return@launch
+                Firebase.firestore.collection("users").document(userId).set(
+                    hashMapOf(
+                        "firstName" to firstName,
+                        "lastName" to lastName,
+                        "dob" to dob,
+                        "email" to email
+                    )
+                ).await()
+                withContext(Dispatchers.Main) {
+                    navigateToHome()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Profile save failed", e)
+                withContext(Dispatchers.Main) {
+                    showError("Profile save failed: ${e.message}")
+                }
+            }
+        }
+    }
+    // endregion
+
+    private val credentialPreferences by lazy {
+        try {
+            val masterKey = MasterKey.Builder(this)
+                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                .build()
+
+            EncryptedSharedPreferences.create(
+                this,
+                "secure_credentials",
+                masterKey,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Error creating encrypted preferences", e)
+            throw RuntimeException("Failed to initialize secure storage", e)
+        }
+    }
+
+    // Secure credential storage
+    private fun saveCredentials(email: String, password: String) {
+        credentialPreferences.edit().apply {
+            putString("email", email)
+            putString("password", password)
+            apply()
+        }
+    }
+
+    private fun hasSavedCredentials(): Boolean {
+        return credentialPreferences.getString("email", null) != null &&
+                credentialPreferences.getString("password", null) != null
+    }
+
+    private fun tryAutoLogin() {
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val email = credentialPreferences.getString("email", null)
+                val password = credentialPreferences.getString("password", null)
+
+                if (!email.isNullOrBlank() && !password.isNullOrBlank()) {
+                    auth.signInWithEmailAndPassword(email, password).await()
+                    withContext(Dispatchers.Main) {
+                        navigateToHome()
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    showError("Auto-login failed")
+                }
+            }
+        }
+    }
+
+
+    // Region Helper Methods
+    private fun handleGoogleSignInResult(data: Intent?) {
+        try {
+            val account = GoogleSignIn.getSignedInAccountFromIntent(data).getResult(ApiException::class.java)
+            account?.idToken?.let { firebaseAuthWithGoogle(it) }
+        } catch (e: Exception) {
+            showError("Google sign-in failed: ${e.message}")
+            binding.progressBar.visibility = View.GONE
         }
     }
 
     private fun firebaseAuthWithGoogle(idToken: String) {
-        val credential = GoogleAuthProvider.getCredential(idToken, null)
-        auth.signInWithCredential(credential)
-            .addOnCompleteListener(this) { task ->
-                isAuthComplete = true
-                binding.progressBar.visibility = View.GONE
-                if (task.isSuccessful) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val credential = GoogleAuthProvider.getCredential(idToken, null)
+                auth.signInWithCredential(credential).await()
+                withContext(Dispatchers.Main) {
                     navigateToHome()
-                } else {
-                    showError("Authentication failed: ${task.exception?.message}")
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    showError("Authentication failed: ${e.message}")
+                    binding.progressBar.visibility = View.GONE
                 }
             }
+        }
     }
 
+    //Navigate to Home Screen
     private fun navigateToHome() {
-        // Make sure the intent uses the correct activity class
-        val intent = Intent(this, HomeActivity::class.java)
-        startActivity(intent)
-        finish()  // Optional: close login activity
+        Intent(this, HomeActivity::class.java).apply {
+            startActivity(this)
+            finish()
+        }
     }
 
-    // set up validation
+
+    //  Input Validation
     private fun setupInputValidations() {
-        // Email validation
         binding.emailEditText.setOnFocusChangeListener { _, hasFocus ->
             if (!hasFocus) validateEmail(binding.emailEditText.text.toString())
         }
 
-        // Password validation
         binding.passwordEditText.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: Editable?) {
-                validatePassword(s.toString())
+                validatePassword(s?.toString() ?: "")
+            }
+
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {
+            }
+
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+
             }
         })
+    }
+
+    private fun validateInput(email: String, password: String): Boolean {
+        return validateEmail(email) && validatePassword(password)
     }
 
     private fun validateEmail(email: String): Boolean {
@@ -224,67 +348,13 @@ class LoginActivity : AppCompatActivity() {
             }
         }
     }
-
-    private fun showSignUpDialog() {
-        val dialog = SignUpDialog(this) { email, password, firstName, lastName, dob ->
-            // Handle the signup with the collected data
-            signUpUser(email, password, firstName, lastName, dob)
-        }
-        dialog.show()
-    }
-
-    private fun signUpUser(
-        email: String,
-        password: String,
-        firstName: String,
-        lastName: String,
-        dob: String
-    ) {
-        binding.progressBar.visibility = View.VISIBLE
-        auth.createUserWithEmailAndPassword(email, password)
-            .addOnCompleteListener(this) { task ->
-                binding.progressBar.visibility = View.GONE
-                if (task.isSuccessful) {
-                    // Save additional user data to Firestore or Realtime Database
-                    saveUserProfile(firstName, lastName, dob, email)
-                    Toast.makeText(this, "Signup Successful", Toast.LENGTH_SHORT).show()
-                } else {
-                    showError("Registration failed: ${task.exception?.message}")
-                }
-            }
-    }
-
-    private fun saveUserProfile(firstName: String, lastName: String, dob: String, email: String) {
-        val userId = auth.currentUser?.uid ?: return
-
-        val user = hashMapOf(
-            "firstName" to firstName,
-            "lastName" to lastName,
-            "dob" to dob,
-            "email" to email
-        )
-
-        Firebase.firestore.collection("users")
-            .document(userId)
-            .set(user)
-            .addOnSuccessListener {
-                Log.d(TAG, "User profile created")
-                navigateToHome()
-            }
-            .addOnFailureListener { e ->
-                Log.w(TAG, "Error saving user profile", e)
-            }
-    }
+    // endregion
 
     companion object {
         private const val TAG = "LoginActivity"
     }
 
     private fun showError(message: String?) {
-        Toast.makeText(
-            this,
-            message ?: "An unknown error occurred",
-            Toast.LENGTH_LONG
-        ).show()
+        Toast.makeText(this, message ?: "An unknown error occurred", Toast.LENGTH_LONG).show()
     }
 }

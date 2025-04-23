@@ -61,6 +61,8 @@ dependencies {
     implementation ("com.google.firebase:firebase-auth-ktx:22.3.1")
     implementation ("com.google.firebase:firebase-firestore-ktx:24.10.")
     implementation ("com.google.android.gms:play-services-auth:20.7.0")
+    implementation ("androidx.activity:activity-ktx:1.8.0")
+    implementation ("androidx.fragment:fragment-ktx:1.6.2")
     // Retrofit for API calls
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation ("com.squareup.retrofit2:converter-gson:2.9.0")
@@ -87,10 +89,10 @@ dependencies {
     // For JSON parsing if needed
     implementation ("com.google.code.gson:gson:2.8.8")
 
-    implementation ("com.google.android.gms:play-services-auth:21.3.0")
     implementation ("com.google.firebase:firebase-auth-ktx:22.3.0")
-    implementation (platform("com.google.firebase:firebase-bom:32.2.0"))
+    implementation (platform("com.google.firebase:firebase-bom:32.7.0"))
     implementation ("com.google.android.material:material:1.9.0")
+    implementation ("androidx.security:security-crypto:1.1.0-alpha06")
     implementation(libs.material)
     implementation(libs.material.v161)
     implementation (libs.androidx.core.ktx.v190)
@@ -115,6 +117,9 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
     implementation(kotlin("script-runtime"))
+    implementation ("com.squareup.okhttp3:okhttp:4.9.3")
+    implementation ("com.google.code.gson:gson:2.8.9")
+    implementation ("com.journeyapps:zxing-android-embedded:4.3.0")
 }
 
 
