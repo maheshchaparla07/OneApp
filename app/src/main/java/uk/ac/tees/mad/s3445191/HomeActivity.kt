@@ -1,9 +1,11 @@
 package uk.ac.tees.mad.s3445191
 
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -33,14 +35,11 @@ import retrofit2.http.Url
 import uk.ac.tees.mad.s3445191.api.RetryInterceptor
 import uk.ac.tees.mad.s3445191.databinding.ActivityHomeBinding
 import uk.ac.tees.mad.s3445191.databinding.ItemApiServiceBinding
-import java.io.IOException
 import java.net.Inet6Address
 import java.net.InetAddress
-import java.net.SocketTimeoutException
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
-import javax.net.ssl.SSLHandshakeException
 
 class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, UrlInputDialog.QRScanListener {
 
@@ -49,6 +48,8 @@ class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, Url
     private lateinit var apiServiceAdapter: ApiServiceAdapter
     private lateinit var webAppAdapter: WebAppAdapter
     private val webApps = mutableListOf<WebApp>()
+    private var lastApiSuccess = false
+
 
     // Time service configuration
     private val timeEndpoints = listOf(
@@ -59,8 +60,7 @@ class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, Url
     private lateinit var timeService: WorldTimeService
     private val timeFormatter = SimpleDateFormat("HH:mm:ss", Locale.UK)
     private var timeUpdateTimer: Timer? = null
-    private var lastSuccessfulTime: String? = null
-    private var lastUpdateTimestamp: Long = 0
+
 
     // QR Scanner launcher
     private val qrScannerLauncher = registerForActivityResult(ScanContract()) { result ->
@@ -73,7 +73,6 @@ class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, Url
         }
     }
     private fun showUrlInputDialog(prefilledUrl: String = "") {
-        // Use the companion object to create new instance
         UrlInputDialog.newInstance(prefilledUrl).show(supportFragmentManager, "UrlInputDialog")
     }
 
@@ -122,7 +121,7 @@ class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, Url
             .build()
 
         val retrofit = Retrofit.Builder()
-            .baseUrl("https://placeholder.com/")
+            .baseUrl("https://worldtimeapi.org/")
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
@@ -135,9 +134,13 @@ class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, Url
         timeUpdateTimer = Timer().apply {
             scheduleAtFixedRate(object : TimerTask() {
                 override fun run() {
-                    if (isNetworkAvailable()) fetchCurrentTime() else showCachedTimeIfAvailable()
+                    if (isNetworkAvailable()) {
+                        fetchCurrentTime()
+                    } else {
+                        updateWithSystemTime()
+                    }
                 }
-            }, 0, 30000) // 30 seconds interval
+            }, 0, 1000) // Update every second
         }
     }
 
@@ -146,82 +149,57 @@ class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, Url
             try {
                 val response = timeService.getTime(timeEndpoints[currentEndpointIndex])
                 if (response.isSuccessful) {
-                    response.body()?.let { updateTimeDisplay(parseTimeFromResponse(it)) }
-                } else {
-                    // Replace this line
-                    showTimeError("HTTP ${response.code()}")  // Changed from handleTimeError
+                    response.body()?.let {
+                        parseTimeFromResponse(it)?.let { isoTime ->
+                            updateTimeDisplay(isoTime, true)
+                            lastApiSuccess = true
+                            return@launch
+                        }
+                    }
                 }
             } catch (e: Exception) {
-                handleSpecificException(e)
+                Log.w(TAG, "API time fetch failed", e)
+            }
+
+            // If we get here, API failed
+            if (!lastApiSuccess) {
+                updateWithSystemTime()
             }
         }
     }
 
-    private fun parseTimeFromResponse(response: WorldTimeResponse): String {
-        return response.datetime ?: response.currentDateTime ?: ""
+    private fun updateWithSystemTime() {
+        lastApiSuccess = false
+        val currentTime = System.currentTimeMillis()
+        updateTimeDisplay(timeFormatter.format(currentTime), false)
     }
 
-    private fun updateTimeDisplay(isoTime: String) {
+    private fun updateTimeDisplay(timeString: String, fromApi: Boolean) {
         runOnUiThread {
-            try {
-                val isoFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSSSSXXX", Locale.UK)
-                val date = isoFormat.parse(isoTime)
-                lastSuccessfulTime = timeFormatter.format(date).also {
-                    binding.currentTimeText.text = "UK Time: $it"
-                }
-                lastUpdateTimestamp = System.currentTimeMillis()
-            } catch (e: Exception) {
-                showCachedTimeIfAvailable()
-            }
+            binding.currentTimeText.text = "UK Time: $timeString" +
+                    if (!fromApi) " (local)" else ""
         }
     }
 
-    private fun handleSpecificException(e: Exception) {
-        when (e) {
-            is SocketTimeoutException -> {
-                Log.w(TAG, "Timeout", e)
-                rotateEndpoint()
-                showTimeoutError()
-            }
-            is SSLHandshakeException -> {
-                Log.w(TAG, "SSL Error", e)
-                showSSLError()
-            }
-            is IOException -> {
-                Log.w(TAG, "Network Error", e)
-                showNetworkError()
-            }
-            else -> {
-                Log.w(TAG, "Unexpected Error", e)
-                showTimeError("Service unavailable")
-            }
+    private fun parseTimeFromResponse(response: WorldTimeResponse): String? {
+        // Try to get the datetime first
+        val dateTime = response.datetime ?: response.currentDateTime ?: return null
+
+        return try {
+            // Parse the ISO8601 datetime string
+            val isoFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.UK)
+            isoFormat.timeZone = TimeZone.getTimeZone("UTC")
+            val date = isoFormat.parse(dateTime)
+
+            // Format to just show the time part
+            timeFormatter.format(date)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error parsing time", e)
+            // Fallback to just showing the raw time string if parsing fails
+            dateTime.substringAfter('T').substringBefore('.')
         }
     }
 
-    private fun rotateEndpoint() {
-        currentEndpointIndex = (currentEndpointIndex + 1) % timeEndpoints.size
-        Log.d(TAG, "Switched to endpoint: ${timeEndpoints[currentEndpointIndex]}")
-    }
-
-    private fun showTimeoutError() = updateTimeStatus("Connection timeout", "Server response timed out")
-    private fun showSSLError() = updateTimeStatus("Security error", "SSL handshake failed")
-    private fun showNetworkError() = updateTimeStatus("No connection", "Network unavailable")
-    private fun showTimeError(msg: String) = updateTimeStatus("Time error", msg)
-
-    private fun updateTimeStatus(text: String, toast: String) {
-        runOnUiThread {
-            binding.currentTimeText.text = text
-            Toast.makeText(this, toast, Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private fun showCachedTimeIfAvailable() {
-        lastSuccessfulTime?.takeIf {
-            System.currentTimeMillis() - lastUpdateTimestamp < 3600000
-        }?.let {
-            binding.currentTimeText.text = "UK Time: $it"
-        } ?: showTimeError("No cached data")
-    }
 
     private fun isNetworkAvailable(): Boolean {
         val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
@@ -235,11 +213,10 @@ class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, Url
         } ?: false
     }
 
-    // Web App Management
     private fun setupWebAppRecyclerView() {
         webAppAdapter = WebAppAdapter(
             apps = webApps,
-            onClick = { app -> launchWebView(app) },
+            onClick = { app -> showOpenUrlOptions(app) }, // Changed to show options
             onDelete = { app -> confirmDeleteApp(app) }
         )
         binding.appsRecyclerView.apply {
@@ -247,6 +224,39 @@ class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, Url
             adapter = webAppAdapter
         }
         loadAppsFromFirestore()
+    }
+
+    private fun showOpenUrlOptions(app: WebApp) {
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Open ${app.name}")
+            .setMessage("How would you like to open this link?")
+            .setPositiveButton("In App") { _, _ ->
+                // Existing WebView launch code
+                if (isNetworkAvailable()) {
+                    startActivity(Intent(this, WebViewActivity::class.java).apply {
+                        putExtra("url", app.url)
+                        putExtra("title", app.name)
+                    })
+                } else {
+                    showNoInternetDialog(app)
+                }
+            }
+            .setNegativeButton("In Chrome") { _, _ ->
+                openInChrome(app.url)
+            }
+            .setNeutralButton("Cancel", null)
+            .show()
+    }
+
+    private fun openInChrome(url: String) {
+        try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+            intent.setPackage("com.android.chrome")
+            startActivity(intent)
+        } catch (e: ActivityNotFoundException) {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+            startActivity(intent)
+        }
     }
 
     private fun launchWebView(app: WebApp) {
@@ -269,7 +279,6 @@ class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, Url
             .setNegativeButton("Cancel", null)
             .show()
     }
-
 
     private fun confirmDeleteApp(app: WebApp) {
         MaterialAlertDialogBuilder(this)
@@ -435,7 +444,6 @@ class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, Url
             .show()
     }
 
-
     private fun logoutUser() {
         auth.signOut()
         auth.currentUser?.email?.let { userId ->
@@ -447,8 +455,6 @@ class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, Url
         finish()
     }
 
-
-
     override fun onDestroy() {
         timeUpdateTimer?.cancel()
         super.onDestroy()
@@ -458,15 +464,13 @@ class HomeActivity : AppCompatActivity(), UrlInputDialog.OnUrlAddedListener, Url
         private const val TAG = "HomeActivity"
     }
 
-
 }
-
-
 
 interface WorldTimeService {
     @GET
     suspend fun getTime(@Url url: String): Response<WorldTimeResponse> // Add generic type parameter
 }
+
 
 data class WorldTimeResponse(
     val datetime: String? = null,

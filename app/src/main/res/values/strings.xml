@@ -10,7 +10,8 @@
     <string name="close_app">Close app</string>
     <string name="app_icon">App icon</string>
     <string name="add_app">Add Api</string>
-
-
+    <string name="switch_account">Switch Account</string>
+    <string name="add_account">Add Account</string>
+    <string name="settings">Settings</string>
 
 </resources>

@@ -63,20 +63,13 @@ dependencies {
     implementation ("com.google.android.gms:play-services-auth:20.7.0")
     implementation ("androidx.activity:activity-ktx:1.8.0")
     implementation ("androidx.fragment:fragment-ktx:1.6.2")
-    // Retrofit for API calls
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation ("com.squareup.retrofit2:converter-gson:2.9.0")
     implementation ("com.squareup.okhttp3:logging-interceptor:4.9.1")
-
-    // Glide for image loading
     implementation ("com.github.bumptech.glide:glide:4.14.2")
     implementation(libs.firebase.firestore.ktx)
     kapt ("com.github.bumptech.glide:compiler:4.14.2")
-
-    // Coroutines
     implementation ("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4")
-
-    // Material Design
     implementation ("com.google.android.material:material:1.9.0")
 
     //  QR code scanning
@@ -93,6 +86,9 @@ dependencies {
     implementation (platform("com.google.firebase:firebase-bom:32.7.0"))
     implementation ("com.google.android.material:material:1.9.0")
     implementation ("androidx.security:security-crypto:1.1.0-alpha06")
+    implementation ("androidx.security:security-crypto:1.1.0-alpha06")
+    implementation ("com.google.crypto.tink:tink-android:1.8.0")
+    implementation ("androidx.webkit:webkit:1.8.0")
     implementation(libs.material)
     implementation(libs.material.v161)
     implementation (libs.androidx.core.ktx.v190)

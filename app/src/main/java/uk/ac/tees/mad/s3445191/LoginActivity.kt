@@ -67,6 +67,36 @@ class LoginActivity : AppCompatActivity() {
         }
     }
 
+
+    private val credentialPreferences by lazy {
+        val masterKey = MasterKey.Builder(this)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build()
+
+        EncryptedSharedPreferences.create(
+            this,
+            "secure_user_data",
+            masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+    }
+
+    private fun saveUserPreferences(
+        firstName: String,
+        lastName: String,
+        dob: String,
+        email: String
+    ) {
+        credentialPreferences.edit().apply {
+            putString("firstName", firstName)
+            putString("lastName", lastName)
+            putString("dob", dob)
+            putString("email", email)
+            apply()
+        }
+    }
+
     //Sets up click listeners for UI elements
     private fun setupUIListeners() {
         binding.apply {
@@ -121,6 +151,16 @@ class LoginActivity : AppCompatActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 auth.signInWithEmailAndPassword(email, password).await()
+                val userId = auth.currentUser?.uid ?: return@launch
+                val userDoc = Firebase.firestore.collection("users").document(userId).get().await()
+
+                saveUserPreferences(
+                    userDoc.getString("firstName") ?: "",
+                    userDoc.getString("lastName") ?: "",
+                    userDoc.getString("dob") ?: "",
+                    userDoc.getString("email") ?: email
+                )
+
                 withContext(Dispatchers.Main) {
                     navigateToHome()
                 }
@@ -154,11 +194,12 @@ class LoginActivity : AppCompatActivity() {
         binding.progressBar.visibility = View.VISIBLE
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                //create firebase user account
                 auth.createUserWithEmailAndPassword(email, password).await()
                 saveUserProfile(firstName, lastName, dob, email)
+                saveUserPreferences(firstName, lastName, dob, email) // Add this line
                 withContext(Dispatchers.Main) {
                     Toast.makeText(this@LoginActivity, "Signup Successful", Toast.LENGTH_SHORT).show()
+                    navigateToHome()
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
@@ -197,60 +238,6 @@ class LoginActivity : AppCompatActivity() {
             }
         }
     }
-    // endregion
-
-    private val credentialPreferences by lazy {
-        try {
-            val masterKey = MasterKey.Builder(this)
-                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-                .build()
-
-            EncryptedSharedPreferences.create(
-                this,
-                "secure_credentials",
-                masterKey,
-                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-            )
-        } catch (e: Exception) {
-            Log.e(TAG, "Error creating encrypted preferences", e)
-            throw RuntimeException("Failed to initialize secure storage", e)
-        }
-    }
-
-    // Secure credential storage
-    private fun saveCredentials(email: String, password: String) {
-        credentialPreferences.edit().apply {
-            putString("email", email)
-            putString("password", password)
-            apply()
-        }
-    }
-
-    private fun hasSavedCredentials(): Boolean {
-        return credentialPreferences.getString("email", null) != null &&
-                credentialPreferences.getString("password", null) != null
-    }
-
-    private fun tryAutoLogin() {
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                val email = credentialPreferences.getString("email", null)
-                val password = credentialPreferences.getString("password", null)
-
-                if (!email.isNullOrBlank() && !password.isNullOrBlank()) {
-                    auth.signInWithEmailAndPassword(email, password).await()
-                    withContext(Dispatchers.Main) {
-                        navigateToHome()
-                    }
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    showError("Auto-login failed")
-                }
-            }
-        }
-    }
 
 
     // Region Helper Methods
@@ -269,6 +256,38 @@ class LoginActivity : AppCompatActivity() {
             try {
                 val credential = GoogleAuthProvider.getCredential(idToken, null)
                 auth.signInWithCredential(credential).await()
+                val user = auth.currentUser
+
+                user?.let {
+                    val userId = it.uid
+                    val userDoc = Firebase.firestore.collection("users").document(userId).get().await()
+
+                    if (userDoc.exists()) {
+                        saveUserPreferences(
+                            userDoc.getString("firstName") ?: "",
+                            userDoc.getString("lastName") ?: "",
+                            userDoc.getString("dob") ?: "",
+                            userDoc.getString("email") ?: it.email ?: ""
+                        )
+                    } else {
+                        val names = it.displayName?.split(" ") ?: listOf("", "")
+                        val firstName = names.firstOrNull() ?: ""
+                        val lastName = names.drop(1).joinToString(" ") ?: ""
+                        val email = it.email ?: ""
+
+                        Firebase.firestore.collection("users").document(userId).set(
+                            hashMapOf(
+                                "firstName" to firstName,
+                                "lastName" to lastName,
+                                "dob" to "",
+                                "email" to email
+                            )
+                        ).await()
+
+                        saveUserPreferences(firstName, lastName, "", email)
+                    }
+                }
+
                 withContext(Dispatchers.Main) {
                     navigateToHome()
                 }
@@ -348,7 +367,7 @@ class LoginActivity : AppCompatActivity() {
             }
         }
     }
-    // endregion
+
 
     companion object {
         private const val TAG = "LoginActivity"
